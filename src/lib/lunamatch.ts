@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 export type ImageSlot = {
+  file: File;
   name: string;
   url: string;
   width: number;
@@ -19,7 +20,7 @@ export type MatchPoint = {
 
 export type RegistrationResult = {
   createdAt: number;
-  demo: true;
+  demo: false;
   inlierMatches: number;
   totalMatches: number;
   inlierRatio: number; // percent
@@ -30,6 +31,10 @@ export type RegistrationResult = {
   translation: [number, number];
   matches: MatchPoint[];
   homography: number[][];
+  registeredImageUrl: string;
+  matchVisualizationUrl?: string;
+  sourceKeypoints: number;
+  referenceKeypoints: number;
 };
 
 export type SensorId = "OHRC" | "TMC" | "IIRS" | "LRO NAC" | "SELENE" | "OTHER";
@@ -42,6 +47,7 @@ type State = {
   status: "idle" | "running" | "done";
   stageIndex: number;
   result: RegistrationResult | null;
+  error: string | null;
 };
 
 export const PIPELINE_STAGES = [
@@ -66,6 +72,7 @@ let state: State = {
   status: "idle",
   stageIndex: -1,
   result: null,
+  error: null,
 };
 
 const listeners = new Set<() => void>();
@@ -90,7 +97,7 @@ export function useLunaMatch() {
 
 export const actions = {
   setImage(slot: "source" | "reference", image: ImageSlot | null) {
-    set({ [slot]: image, status: "idle", result: null, stageIndex: -1 } as Partial<State>);
+    set({ [slot]: image, status: "idle", result: null, stageIndex: -1, error: null } as Partial<State>);
   },
   setSensor(slot: "source" | "reference", sensor: SensorId) {
     set(slot === "source" ? { sourceSensor: sensor } : { referenceSensor: sensor });
@@ -99,10 +106,13 @@ export const actions = {
     set({ status: "running", stageIndex: i });
   },
   start() {
-    set({ status: "running", stageIndex: 0, result: null });
+    set({ status: "running", stageIndex: 0, result: null, error: null });
   },
   complete(result: RegistrationResult) {
-    set({ status: "done", stageIndex: PIPELINE_STAGES.length, result });
+    set({ status: "done", stageIndex: PIPELINE_STAGES.length, result, error: null });
+  },
+  fail(message: string) {
+    set({ status: "idle", stageIndex: -1, error: message });
   },
   reset() {
     set({
@@ -111,85 +121,10 @@ export const actions = {
       status: "idle",
       stageIndex: -1,
       result: null,
+      error: null,
     });
   },
 };
-
-/** Deterministic pseudo-random generator so demo results are reproducible. */
-function mulberry32(seed: number) {
-  return function () {
-    seed |= 0;
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/** Builds a plausible, clearly-labelled prototype result set. */
-export function buildDemoResult(seedText: string): RegistrationResult {
-  let seed = 7;
-  for (let i = 0; i < seedText.length; i++) seed = (seed * 31 + seedText.charCodeAt(i)) | 0;
-  const rnd = mulberry32(seed);
-
-  const inlierMatches = 231 + Math.floor(rnd() * 45);
-  const inlierRatio = 88.5 + rnd() * 5.5;
-  const totalMatches = Math.round(inlierMatches / (inlierRatio / 100));
-  const rmse = 0.62 + rnd() * 0.4;
-  const coverage = 82 + rnd() * 10;
-  const scaleRatio = 0.94 + rnd() * 0.14;
-  const rotationDeg = (rnd() - 0.5) * 7;
-  const tx = (rnd() - 0.5) * 60;
-  const ty = (rnd() - 0.5) * 60;
-
-  const matches: MatchPoint[] = [];
-  const count = 60;
-  const rad = (rotationDeg * Math.PI) / 180;
-  for (let i = 0; i < count; i++) {
-    // stratified sampling over a 6x5 grid keeps points spatially spread
-    const gx = i % 6;
-    const gy = Math.floor(i / 6) % 5;
-    const sx = (gx + 0.15 + rnd() * 0.7) / 6;
-    const sy = (gy + 0.15 + rnd() * 0.7) / 5;
-    const inlier = rnd() < inlierRatio / 100;
-    const cx = sx - 0.5;
-    const cy = sy - 0.5;
-    let rx = 0.5 + (cx * Math.cos(rad) - cy * Math.sin(rad)) * scaleRatio + tx / 1200;
-    let ry = 0.5 + (cx * Math.sin(rad) + cy * Math.cos(rad)) * scaleRatio + ty / 1200;
-    if (!inlier) {
-      rx += (rnd() - 0.5) * 0.4;
-      ry += (rnd() - 0.5) * 0.4;
-    }
-    matches.push({
-      sx,
-      sy,
-      rx: Math.min(0.97, Math.max(0.03, rx)),
-      ry: Math.min(0.97, Math.max(0.03, ry)),
-      inlier,
-    });
-  }
-
-  const homography = [
-    [scaleRatio * Math.cos(rad), -Math.sin(rad) * scaleRatio, tx],
-    [Math.sin(rad) * scaleRatio, scaleRatio * Math.cos(rad), ty],
-    [0.0000021, -0.0000014, 1],
-  ];
-
-  return {
-    createdAt: Date.now(),
-    demo: true,
-    inlierMatches,
-    totalMatches,
-    inlierRatio,
-    rmse,
-    coverage,
-    scaleRatio,
-    rotationDeg,
-    translation: [tx, ty],
-    matches,
-    homography,
-  };
-}
 
 export function readImageFile(file: File): Promise<ImageSlot> {
   return new Promise((resolve, reject) => {
@@ -205,6 +140,7 @@ export function readImageFile(file: File): Promise<ImageSlot> {
     const img = new Image();
     img.onload = () =>
       resolve({
+        file,
         name: file.name,
         url,
         width: img.naturalWidth,
@@ -224,4 +160,65 @@ export function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+type ApiResponse = {
+  success: boolean;
+  error?: string;
+  metrics: {
+    source_keypoints: number;
+    reference_keypoints: number;
+    total_matches: number;
+    inlier_matches: number;
+    inlier_ratio: number;
+    rmse: number | null;
+    spatial_coverage: number;
+    scale_ratio: number;
+    rotation_deg: number;
+    translation: [number, number];
+  };
+  matches: MatchPoint[];
+  homography: number[][];
+  registered_image: string;
+  match_visualization: string;
+};
+
+export async function registerImages(source: ImageSlot, reference: ImageSlot): Promise<RegistrationResult> {
+  const body = new FormData();
+  body.append("source_image", source.file, source.name);
+  body.append("reference_image", reference.file, reference.name);
+
+  let response: Response;
+  try {
+    response = await fetch(import.meta.env.VITE_API_URL ?? "http://localhost:8000/register", {
+      method: "POST",
+      body,
+    });
+  } catch {
+    throw new Error("The registration backend is unavailable. Start the FastAPI service and try again.");
+  }
+
+  const payload = (await response.json().catch(() => null)) as ApiResponse | null;
+  if (!response.ok || !payload?.success) {
+    throw new Error(payload?.error ?? "Registration failed. Please check the images and try again.");
+  }
+
+  return {
+    createdAt: Date.now(),
+    demo: false,
+    inlierMatches: payload.metrics.inlier_matches,
+    totalMatches: payload.metrics.total_matches,
+    inlierRatio: payload.metrics.inlier_ratio,
+    rmse: payload.metrics.rmse ?? 0,
+    coverage: payload.metrics.spatial_coverage,
+    scaleRatio: payload.metrics.scale_ratio,
+    rotationDeg: payload.metrics.rotation_deg,
+    translation: payload.metrics.translation,
+    matches: payload.matches,
+    homography: payload.homography,
+    registeredImageUrl: `data:image/png;base64,${payload.registered_image}`,
+    matchVisualizationUrl: `data:image/png;base64,${payload.match_visualization}`,
+    sourceKeypoints: payload.metrics.source_keypoints,
+    referenceKeypoints: payload.metrics.reference_keypoints,
+  };
 }
