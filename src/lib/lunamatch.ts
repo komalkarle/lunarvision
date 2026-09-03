@@ -190,7 +190,7 @@ export async function registerImages(source: ImageSlot, reference: ImageSlot): P
 
   let response: Response;
   try {
-    response = await fetch(import.meta.env.VITE_API_URL ?? "http://localhost:8000/register", {
+    response = await fetch(import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/register", {
       method: "POST",
       body,
     });

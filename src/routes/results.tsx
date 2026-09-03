@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Section, PrototypeTag } from "@/components/luna/Section";
+import { Section } from "@/components/luna/Section";
 import { MetricCard } from "@/components/luna/MetricCard";
 import { CorrespondenceView } from "@/components/luna/CorrespondenceView";
 import { PipelineFlow } from "@/components/luna/PipelineFlow";
@@ -43,7 +43,7 @@ function ResultsPage() {
   const state = useLunaMatch();
   const [opacity, setOpacity] = useState(55);
   const [showOutliers, setShowOutliers] = useState(false);
-  const result = state.result;
+    const result = state.result;
 
   if (!result) {
     return (
@@ -61,9 +61,8 @@ function ResultsPage() {
   function download() {
     if (!result) return;
     const payload = {
-      product: "LunaMatch prototype registration report",
-      disclaimer:
-        "Values are illustrative prototype outputs generated in the browser. No registration backend was executed.",
+        product: "LunaMatch SIFT baseline registration report",
+        method: "SIFT + BFMatcher + Lowe ratio test + RANSAC homography",
       generatedAt: new Date(result.createdAt).toISOString(),
       source: state.source
         ? {
@@ -107,10 +106,12 @@ function ResultsPage() {
       <Section
         title="Registration Summary"
         eyebrow="Results"
-        description={`${state.sourceSensor} source registered to ${state.referenceSensor} reference. Metrics below are demonstration values, not computed measurements.`}
+          description={`${state.sourceSensor} source registered to ${state.referenceSensor} reference using the SIFT + RANSAC baseline.`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <PrototypeTag />
+              <span className="rounded border border-success/40 bg-success/10 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-success">
+                Computed Result
+              </span>
             <Button size="sm" variant="outline" onClick={download}>
               <Download className="size-4" /> Download Results
             </Button>
@@ -153,6 +154,17 @@ function ResultsPage() {
             hint="Image area containing verified matches"
           />
         </div>
+
+        <dl className="mt-4 grid gap-4 rounded-md border border-border bg-surface p-4 font-mono text-xs sm:grid-cols-2">
+          <div>
+            <dt className="label-meta">Source keypoints</dt>
+            <dd className="mt-1">{result.sourceKeypoints.toLocaleString()}</dd>
+          </div>
+          <div>
+            <dt className="label-meta">Reference keypoints</dt>
+            <dd className="mt-1">{result.referenceKeypoints.toLocaleString()}</dd>
+          </div>
+        </dl>
 
         <dl className="mt-4 grid gap-4 rounded-md border border-border bg-surface p-4 font-mono text-xs sm:grid-cols-3">
           <div>
@@ -204,7 +216,7 @@ function ResultsPage() {
       >
         <div className="grid gap-4 lg:grid-cols-3">
           <Frame url={state.reference?.url} caption="Reference Image" meta={state.referenceSensor} />
-          <Frame url={state.source?.url} caption="Registered Source" meta={state.sourceSensor} warped />
+          <Frame url={result.registeredImageUrl} caption="Registered Source" meta={state.sourceSensor} />
           <div>
             <p className="label-meta mb-2">Overlay comparison</p>
             <div className="relative aspect-square overflow-hidden rounded-md border border-border bg-black/40">
@@ -213,9 +225,9 @@ function ResultsPage() {
               ) : (
                 <div className="grid-backdrop absolute inset-0" />
               )}
-              {state.source?.url ? (
+              {result.registeredImageUrl ? (
                 <img
-                  src={state.source.url}
+                  src={result.registeredImageUrl}
                   alt="Registered source frame overlay"
                   className="absolute inset-0 size-full object-cover"
                   style={{
@@ -239,6 +251,12 @@ function ResultsPage() {
             </div>
           </div>
         </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <DownloadButton url={result.registeredImageUrl} filename="lunamatch-registered.png" label="Download Registered Image" />
+          {result.matchVisualizationUrl ? (
+            <DownloadButton url={result.matchVisualizationUrl} filename="lunamatch-matches.png" label="Download Match Visualization" />
+          ) : null}
+        </div>
       </Section>
 
       <Section
@@ -253,6 +271,16 @@ function ResultsPage() {
         <PipelineFlow steps={PIPELINE} orientation="vertical" activeIndex={PIPELINE.length - 1} />
       </Section>
     </div>
+  );
+}
+
+function DownloadButton({ url, filename, label }: { url: string; filename: string; label: string }) {
+  return (
+    <Button size="sm" variant="outline" asChild>
+      <a href={url} download={filename}>
+        <Download className="size-4" /> {label}
+      </a>
+    </Button>
   );
 }
 

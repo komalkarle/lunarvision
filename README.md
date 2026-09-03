@@ -282,16 +282,6 @@ Important UI requirements:
 
 - Clearly distinguish demo/prototype metrics from actual computed metrics
 
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/e1af0cb7-ca62-43de-8479-3f316f705647).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
 ## Development
 
 Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
@@ -302,3 +292,22 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Registration Backend
+
+The frontend calls `POST http://localhost:8000/register` with multipart fields
+`source_image` and `reference_image`. The backend runs the SIFT + BFMatcher + Lowe ratio
+test + RANSAC homography baseline and returns computed metrics, normalized matches, a
+registered PNG, and a match visualization.
+
+```sh
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+
+Start the frontend in a second terminal with `npm run dev`. Set `VITE_API_URL` when the
+backend is hosted elsewhere. Learned matchers such as LoFTR, SuperPoint, and LightGlue
+can replace the detector/matcher service modules without changing the frontend contract.

@@ -65,8 +65,8 @@ function AboutPage() {
 
       <Section title="Current Prototype" eyebrow="Scope">
         <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-          The prototype demonstrates the complete registration workflow and evaluation interface. It
-          runs entirely in the browser with illustrative demo data — no feature detection, RANSAC or
+          The current baseline demonstrates the complete registration workflow and evaluation interface. It
+          uses a FastAPI service for real SIFT feature detection, RANSAC and
           warping is executed. Metrics shown on the Results page are labelled as prototype values
           and will be replaced by computed measurements once the processing backend is connected.
         </p>

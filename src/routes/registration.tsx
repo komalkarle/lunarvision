@@ -4,7 +4,7 @@ import { CheckCircle2, Loader2, Play, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Section } from "@/components/luna/Section";
 import { UploadPanel } from "@/components/luna/UploadPanel";
-import { actions, buildDemoResult, PIPELINE_STAGES, useLunaMatch } from "@/lib/lunamatch";
+import { actions, PIPELINE_STAGES, registerImages, useLunaMatch } from "@/lib/lunamatch";
 import { cn } from "@/lib/utils";
 
 const TITLE = "Image Registration — LunaMatch";
@@ -35,21 +35,27 @@ function RegistrationPage() {
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
-  function run() {
+  async function run() {
     if (!ready || running) return;
+    const source = state.source;
+    const reference = state.reference;
+    if (!source || !reference) return;
     actions.start();
     setStage(0);
-    PIPELINE_STAGES.forEach((_, i) => {
-      timers.current.push(setTimeout(() => setStage(i), i * 550));
-    });
-    timers.current.push(
-      setTimeout(() => {
-        const result = buildDemoResult(`${state.source?.name}|${state.reference?.name}`);
-        actions.complete(result);
-        setStage(-1);
-        void navigate({ to: "/results" });
-      }, PIPELINE_STAGES.length * 550 + 400),
-    );
+    const progressTimer = setInterval(() => {
+      setStage((current) => Math.min(current + 1, PIPELINE_STAGES.length - 1));
+    }, 650);
+    try {
+      const result = await registerImages(source, reference);
+      actions.complete(result);
+      setStage(-1);
+      void navigate({ to: "/results" });
+    } catch (error) {
+      actions.fail(error instanceof Error ? error.message : "Registration failed. Please try again.");
+      setStage(-1);
+    } finally {
+      clearInterval(progressTimer);
+    }
   }
 
   function resetAll() {
@@ -150,6 +156,11 @@ function RegistrationPage() {
             })}
           </ol>
         </Section>
+      ) : null}
+      {state.error ? (
+        <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
+          {state.error}
+        </p>
       ) : null}
     </div>
   );

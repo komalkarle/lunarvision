@@ -80,8 +80,8 @@ function Dashboard() {
           </Button>
         </div>
         <p className="mt-6 max-w-3xl rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-accent">
-          Demonstration interface. No registration backend is connected — all metrics and overlays
-          shown in this build are illustrative prototype values.
+          Baseline mode uses a separate FastAPI service with SIFT, Lowe's ratio test, RANSAC and
+          homography registration. Results are computed from the uploaded image pair.
         </p>
       </section>
 
