@@ -1,5 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Mountain, Ruler, Sun } from "lucide-react";
+import {
+  Activity,
+  ArrowRight,
+  CheckCircle2,
+  Crosshair,
+  Database,
+  Mountain,
+  Ruler,
+  ScanSearch,
+  Sun,
+} from "lucide-react";
 import { Section } from "@/components/luna/Section";
 import { PipelineFlow } from "@/components/luna/PipelineFlow";
 import { Button } from "@/components/ui/button";
@@ -56,39 +66,98 @@ const WORKFLOW = [
 function Dashboard() {
   return (
     <div className="space-y-6">
-      <section className="panel grid-backdrop relative overflow-hidden p-6 md:p-10">
-        <p className="label-meta">Smart India Hackathon · Prototype</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">LunaMatch</h1>
-        <p className="mt-2 text-base text-primary md:text-lg">
-          Multi-Modal Lunar Image Correspondence &amp; Registration
-        </p>
-        <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground md:text-base">
-          Lunar surface images acquired by different sensors rarely align. Chandrayaan-2 OHRC, TMC
-          and IIRS products differ from reference datasets such as LRO NAC or SELENE in spectral
-          response, spatial resolution, viewing geometry and solar illumination. LunaMatch explores
-          a workflow that identifies corresponding physical locations across such multi-modal pairs
-          and estimates the geometric transformation that brings them into alignment.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Button asChild size="lg">
-            <Link to="/registration">
-              Open Image Registration <ArrowRight className="size-4" />
-            </Link>
-          </Button>
-          <Button asChild size="lg" variant="outline">
-            <Link to="/about">Read the approach</Link>
-          </Button>
+      <section className="panel overflow-hidden">
+        <div className="grid lg:grid-cols-[1.05fr_1.35fr]">
+          <div className="grid-backdrop flex flex-col justify-between border-b border-border p-6 md:p-8 lg:border-b-0 lg:border-r">
+            <div>
+              <div className="flex items-center gap-2 text-success">
+                <span className="size-2 rounded-full bg-success shadow-[0_0_12px_var(--color-success)]" />
+                <span className="label-meta text-success">Baseline engine ready</span>
+              </div>
+              <p className="label-meta mt-8">Smart India Hackathon · Mission console</p>
+              <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">LunaMatch</h1>
+              <p className="mt-3 max-w-md text-base leading-relaxed text-primary">
+                Find the same lunar terrain across different sensors, then register it precisely.
+              </p>
+              <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
+                Upload a Chandrayaan-2 frame and a matching lunar reference image to run the SIFT +
+                RANSAC correspondence baseline.
+              </p>
+            </div>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <Link to="/registration">
+                  Start a registration <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link to="/about">View method</Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="p-4 md:p-6">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="label-meta">Demo pair · same terrain</p>
+                <h2 className="mt-1 text-lg font-semibold">Correspondence preview</h2>
+              </div>
+              <Crosshair className="size-5 text-primary" />
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <ImagePreview src="/sample-lunar-source.png" label="SOURCE" sensor="OHRC" />
+              <ImagePreview src="/sample-lunar-reference.png" label="REFERENCE" sensor="LRO NAC" />
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <Readout icon={ScanSearch} label="Detector" value="SIFT" />
+              <Readout icon={Activity} label="Matcher" value="RANSAC" />
+              <Readout icon={Database} label="Output" value="H-map" />
+            </div>
+          </div>
         </div>
-        <p className="mt-6 max-w-3xl rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-accent">
-          Baseline mode uses a separate FastAPI service with SIFT, Lowe's ratio test, RANSAC and
-          homography registration. Results are computed from the uploaded image pair.
-        </p>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-[1.4fr_1fr]">
+        <Section
+          title="Run sequence"
+          eyebrow="Live pipeline"
+          description="Every stage is executed against your uploaded image pair."
+        >
+          <div className="grid gap-2 sm:grid-cols-2">
+            {[
+              "Images loaded",
+              "Intensity normalized",
+              "Features detected",
+              "Matches filtered",
+              "Outliers removed",
+              "Registration evaluated",
+            ].map((step, index) => (
+              <div key={step} className="flex items-center gap-3 rounded-md border border-border bg-surface px-3 py-3">
+                <CheckCircle2 className="size-4 shrink-0 text-success" />
+                <span className="text-sm">{step}</span>
+                <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Section>
+        <Section title="Input pair" eyebrow="Ready to compare">
+          <div className="space-y-3">
+            <StatusRow label="Source sensor" value="OHRC / TMC / IIRS" />
+            <StatusRow label="Reference sensor" value="LRO NAC / SELENE" />
+            <StatusRow label="Transformation" value="Homography" />
+            <div className="mt-4 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs leading-relaxed text-accent">
+              Try the included sample pair on the registration page to see the complete flow.
+            </div>
+          </div>
+        </Section>
       </section>
 
       <Section
-        title="Core Challenges"
+        title="What the baseline handles"
         eyebrow="Problem space"
-        description="Three invariances the matching pipeline must handle for reliable multi-modal correspondence."
+        description="The same conditions that make lunar imagery difficult to compare."
       >
         <div className="grid gap-4 md:grid-cols-3">
           {CHALLENGES.map((c) => (
@@ -105,12 +174,43 @@ function Dashboard() {
       </Section>
 
       <Section
-        title="Processing Workflow"
-        eyebrow="End to end"
-        description="Stages executed for every source / reference pair submitted to the system."
+        title="Processing architecture"
+        eyebrow="Expandable baseline"
+        description="A modular foundation for future learned correspondence models."
       >
         <PipelineFlow steps={WORKFLOW} />
       </Section>
+    </div>
+  );
+}
+
+function ImagePreview({ src, label, sensor }: { src: string; label: string; sensor: string }) {
+  return (
+    <div className="relative aspect-[4/3] overflow-hidden rounded-md border border-border bg-black/50">
+      <img src={src} alt={`${label} sample lunar image`} className="size-full object-cover grayscale" />
+      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-background/85 px-3 py-2">
+        <span className="font-mono text-[10px] tracking-widest text-primary">{label}</span>
+        <span className="font-mono text-[10px] text-muted-foreground">{sensor}</span>
+      </div>
+    </div>
+  );
+}
+
+function Readout({ icon: Icon, label, value }: { icon: typeof ScanSearch; label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-surface p-3">
+      <Icon className="size-4 text-primary" />
+      <p className="label-meta mt-3">{label}</p>
+      <p className="mt-1 font-mono text-xs text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function StatusRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-border pb-3 text-sm last:border-b-0 last:pb-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-mono text-xs text-foreground">{value}</span>
     </div>
   );
 }
